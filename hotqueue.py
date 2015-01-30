@@ -40,9 +40,10 @@ class HotQueue(object):
         :attr:`host`, :attr:`port`, :attr:`db`
     """
     
-    def __init__(self, name, serializer=pickle, **kwargs):
+    def __init__(self, name, serializer=pickle, max_queue_length=None, **kwargs):
         self.name = name
         self.serializer = serializer
+        self.max_queue_length = max_queue_length
         self.__redis = Redis(**kwargs)
     
     def __len__(self):
@@ -118,6 +119,10 @@ class HotQueue(object):
         if self.serializer is not None:
             msgs = map(self.serializer.dumps, msgs)
         self.__redis.rpush(self.key, *msgs)
+
+        # Enforce a maximum queue size
+        if self.max_queue_length is not None and int(self.max_queue_length) > 0:
+            self.__redis.ltrim(self.key, 0, int(self.max_queue_length) - 1)
     
     def worker(self, *args, **kwargs):
         """Decorator for using a function as a queue worker. Example:
